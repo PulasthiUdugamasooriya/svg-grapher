@@ -4,84 +4,83 @@ var baselines = {
     "bottom" : "baseline"
 };
 
-class SVGLine {
-    #htmlElement;
+class SVGElement {
+    htmlElement;
 
+    constructor(name) {
+        this.htmlElement = document.createElementNS("http://www.w3.org/2000/svg", name);
+    }
+
+    setProperties(properties) {
+        for (property in properties) {
+            this.htmlElement.setAttribute(property, properties[property]);
+        }
+    }
+
+    setProperty(property, value) {
+        this.htmlElement.setAttribute(property, value);
+    }
+}
+
+class SVGLine extends SVGElement {
     constructor(x1, y1, x2, y2) {
-        var lineElement = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        var lineElement = super("line");
 
-        lineElement.setAttribute("x1", x1);
-        lineElement.setAttribute("y1", y1);
-        lineElement.setAttribute("x2", x2);
-        lineElement.setAttribute("y2", y2);
-
-        this.#htmlElement = lineElement;
-
-        this.setProperties({
+        lineElement.setProperties({
+            "x1" : x1,
+            "y1" : y1,
+            "x2" : x2,
+            "y2" : y2,
             "stroke" : "black",
             "stroke-width" : 1,
         });
 
         return lineElement;
     }
-
-    setProperties(properties) {
-        for (property in properties) {
-            this.#htmlElement.setAttribute(property, properties[property]);
-        }
-    }
-
-    setProperty(property, value) {
-        this.#htmlElement.setAttribute(property, value);
-    }
 }
 
-class SVGText {
+class SVGText extends SVGElement {
     constructor(text, x, y, anchor) {
         // look at text wrapping. needs to be set with css.
+        var textElement = super("text");
 
-        // baseline thing is not working as i thought. fix it or just manually position the text and remove 
-        // that argument called baseline.
+        textElement.setProperties({
+            "x" : x,
+            "y" : y,
+            "text-anchor" : anchor,
+            "font-family" : "Arial",
+            "font-size" : 12,
+            "color" : "black",
+        });
 
-        var textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
-
-        textElement.setAttribute("x", x);
-        textElement.setAttribute("y", y);
-
-        textElement.setAttribute("text-anchor", anchor);
-        textElement.setAttribute("font-size", properties["font-size"]);
-        textElement.setAttribute("dominant-baseline", baselines[baseline]);
-        
-        textElement.setAttribute("style",
-            "color: " + properties["color"] + "; " +
-            "font-family: " + properties["font-family"] + ";"
-        );
-
-        textElement.innerHTML = text;
-        
-        this.#htmlElement.appendChild(textElement);
+        textElement.htmlElement.innerHTML = text;
 
         return textElement;
     }
-
-    "font-family" : "Arial",
-        "font-size" : 12,
-        "color" : "black",
 }
 
-class SVGPath {
+class SVGPath extends SVGElement {
+    constructor(pathString) {
+        var pathElement = super("path");
 
+        pathElement.setProperties({
+            "d" : pathString,
+            "line-color" : "black",
+            "line-width" : 1,
+            "fill" : "transparent",
+        });
+        
+        return pathElement;
+    }
 }
 
-class SVGElement {
-    #parentElement;
-    #htmlElement
+class SVGStage {
+    htmlElement
 
     width;
     height;
 
-    constructor(parentElement) {
-        this.#parentElement = parentElement;
+    constructor(parentElement) {        
         this.width = parentElement.clientWidth;
         this.height = parentElement.clientHeight;
 
@@ -92,76 +91,13 @@ class SVGElement {
         htmlElement.setAttribute("preserveAspectRatio", "none");
         htmlElement.setAttribute("viewBox", "0 0 " + this.width + " " + this.height);
 
-        this.#htmlElement = htmlElement;
+        this.htmlElement = htmlElement;
 
         parentElement.appendChild(htmlElement);
     }
 
-    addLine(x1, y1, x2, y2, properties = {
-        "width" : 1,
-        "color" : "black",
-    }) {
-        var lineElement = document.createElementNS("http://www.w3.org/2000/svg", "line");
-
-        lineElement.setAttribute("x1", x1);
-        lineElement.setAttribute("y1", y1);
-        lineElement.setAttribute("x2", x2);
-        lineElement.setAttribute("y2", y2);
-
-        lineElement.setAttribute("stroke-width", properties["width"]);
-        lineElement.setAttribute("stroke", properties["color"]);
-
-        this.#htmlElement.appendChild(lineElement);
-
-        return lineElement;
-    }
-
-    addText(text, x, y, anchor, baseline, properties = {
-        "font-family" : "Arial",
-        "font-size" : 12,
-        "color" : "black",
-    }) {
-        // look at text wrapping. needs to be set with css.
-
-        // baseline thing is not working as i thought. fix it or just manually position the text and remove 
-        // that argument called baseline.
-
-        var textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
-
-        textElement.setAttribute("x", x);
-        textElement.setAttribute("y", y);
-
-        textElement.setAttribute("text-anchor", anchor);
-        textElement.setAttribute("font-size", properties["font-size"]);
-        textElement.setAttribute("dominant-baseline", baselines[baseline]);
-        
-        textElement.setAttribute("style",
-            "color: " + properties["color"] + "; " +
-            "font-family: " + properties["font-family"] + ";"
-        );
-
-        textElement.innerHTML = text;
-        
-        this.#htmlElement.appendChild(textElement);
-
-        return textElement;
-    }
-
-    addPath(pathString, properties = {
-        "line-color" : "black",
-        "line-width" : 1,
-        "fill" : "transparent"
-    }) {
-        var pathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
-
-        pathElement.setAttribute("d", pathString);
-        pathElement.setAttribute("stroke", properties["line-color"]);
-        pathElement.setAttribute("stroke-width", properties["line-width"]);
-        pathElement.setAttribute("fill", properties["fill"]);
-
-        this.#htmlElement.appendChild(pathElement);
-
-        return pathElement;
+    addElement(element) {
+        this.htmlElement.appendChild(element.htmlElement);
     }
 }
 
@@ -177,7 +113,7 @@ class GraphLine extends Curve {
     }
 };
 
-class Plot extends SVGElement {
+class Plot extends SVGStage {
     #dx;
     #dy;
     #originX;
