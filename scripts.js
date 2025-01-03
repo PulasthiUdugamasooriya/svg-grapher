@@ -1,9 +1,3 @@
-var baselines = {
-    "top" : "hanging",
-    "middle" : "middle",
-    "bottom" : "baseline"
-};
-
 class SVGElement {
     htmlElement;
 
@@ -12,7 +6,7 @@ class SVGElement {
     }
 
     setProperties(properties) {
-        for (property in properties) {
+        for (var property in properties) {
             this.htmlElement.setAttribute(property, properties[property]);
         }
     }
@@ -50,7 +44,6 @@ class SVGText extends SVGElement {
             "text-anchor" : anchor,
             "font-family" : "Arial",
             "font-size" : 12,
-            "color" : "black",
         });
 
         textElement.htmlElement.innerHTML = text;
@@ -65,8 +58,8 @@ class SVGPath extends SVGElement {
 
         pathElement.setProperties({
             "d" : pathString,
-            "line-color" : "black",
-            "line-width" : 1,
+            "stroke" : "black",
+            "stroke-width" : 1,
             "fill" : "transparent",
         });
         
@@ -101,9 +94,9 @@ class SVGStage {
     }
 }
 
-class Curve {
+class Curve extend SVGPath {
     constructor(x, y, startT, endT, numPts) {
-
+        
     }
 };
 
@@ -172,8 +165,6 @@ class Plot extends SVGStage {
         return svgPathString;
     }
 
-    // given string in user coords, turn to svg coord string, that can be passed to addPath
-
     drawGridlines(xIncrement = 1, yIncrement = 1, properties = {}, properties2 = {}) {
         // Make a way to pass properties
 
@@ -181,11 +172,10 @@ class Plot extends SVGStage {
             for (var x = this.#leftmostX; x <= this.#rightmostX; x += xIncrement) {
                 var startPoint = this.getSVGCoords(x, this.#bottommostY);
                 var endPoint = this.getSVGCoords(x, this.#topmostY);
-            
-                this.addLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y, {
-                    "width" : 1,
-                    "color" : "lightgray"
-                });
+
+                var line = new SVGLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+                line.setProperty("stroke", "lightgray");
+                this.addElement(line);
             }
         }
 
@@ -194,83 +184,69 @@ class Plot extends SVGStage {
                 var startPoint = this.getSVGCoords(this.#leftmostX, y);
                 var endPoint = this.getSVGCoords(this.#rightmostX, y);
             
-                this.addLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y, {
-                    "width" : 1,
-                    "color" : "lightgray"
-                });
+                var line = new SVGLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+                line.setProperty("stroke", "lightgray");
+                this.addElement(line);
             }
         }
     }
 
     drawCoordinateAxes(xAxis = true, yAxis = true) {
-        // So make a nice way of passing in the ability to pass required options nicely. For the time being
-        // IG I will implement every property.
-
         if (xAxis) {
             var startPoint = this.getSVGCoords(this.#leftmostX, 0);
             var endPoint = this.getSVGCoords(this.#rightmostX, 0);
             
-            this.addLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y, {
-                "width" : 1,
-                "color" : "black"
-            });
+            var xaxis = new SVGLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+            this.addElement(xaxis);
 
             var arrowPathString = this.getSVGPathString("M " + this.#rightmostX + " 0");
             arrowPathString += "m -5 -2 l 5 2 l -5 2";
-            this.addPath(arrowPathString);
+            var rightArrow = new SVGPath(arrowPathString);
+            this.addElement(rightArrow);
 
             var labelPos = this.getSVGCoords(this.#rightmostX, 0);
-            this.addText("x", labelPos.x - 5, labelPos.y + 12, "end", "top", {
-                "font-family" : "MJXTEX-I",
-                "font-size" : 12,
-                "color" : "black",
-            });
+            var xlabel = new SVGText("x", labelPos.x - 5, labelPos.y + 12, "end");
+            xlabel.setProperty("font-family", "MJXTEX-I");
+            this.addElement(xlabel);
         }
 
         if (yAxis) {
             var startPoint = this.getSVGCoords(0, this.#bottommostY);
             var endPoint = this.getSVGCoords(0, this.#topmostY);
             
-            this.addLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y, {
-                "width" : 1,
-                "color" : "black"
-            });
+            var yaxis = new SVGLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+            this.addElement(yaxis);
 
             var arrowPathString = this.getSVGPathString("M 0 " + this.#topmostY);
             arrowPathString += "m -2 5 l 2 -5 l 2 5";
-            this.addPath(arrowPathString);
+            var topArrow = new SVGPath(arrowPathString);
+            this.addElement(topArrow);
 
             var labelPos = this.getSVGCoords(0, this.#topmostY);
-            this.addText("y", labelPos.x - 5, labelPos.y + 12, "end", "top", {
-                "font-family" : "MJXTEX-I",
-                "font-size" : 12,
-                "color" : "black",
-            });
+            var ylabel = new SVGText("y", labelPos.x - 5, labelPos.y + 12, "end");
+            ylabel.setProperty("font-family", "MJXTEX-I");
+            this.addElement(ylabel);
         }
     }
 
     displayNumbers(xIncrement = 1, yIncrement = 1) {
         if (xIncrement > 0) {
             for (var x = this.#leftmostX; x < this.#rightmostX; x += xIncrement) {
-                var pos = this.getSVGCoords(x, 0);
-            
-                this.addText(x, pos.x - 4, pos.y + 12, "end", "top", {
-                    "font-family" : "MJXTEX",
-                    "font-size" : 12,
-                    "color" : "black",
-                });
+                var numberPos = this.getSVGCoords(x, 0);
+
+                var number = new SVGText(x, numberPos.x - 5, numberPos.y + 12, "end");
+                number.setProperty("font-family", "MJXTEX");
+                this.addElement(number);
             }
         }
 
         if (yIncrement > 0) {
             for (var y = this.#bottommostY; y < this.#topmostY; y += yIncrement) {
-                var pos = this.getSVGCoords(0, y);
-            
-                this.addText(y, pos.x - 4, pos.y + 12, "end", "top", {
-                    "font-family" : "MJXTEX",
-                    "font-size" : 12,
-                    "color" : "black",
-                });
+                var numberPos = this.getSVGCoords(0, y);
+
+                var number = new SVGText(y, numberPos.x - 5, numberPos.y + 12, "end");
+                number.setProperty("font-family", "MJXTEX");
+                this.addElement(number);
             }
         }
     }
