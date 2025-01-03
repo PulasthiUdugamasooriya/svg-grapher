@@ -94,18 +94,6 @@ class SVGStage {
     }
 }
 
-class Curve extend SVGPath {
-    constructor(x, y, startT, endT, numPts) {
-        
-    }
-};
-
-class GraphLine extends Curve {
-    constructor() {
-
-    }
-};
-
 class Plot extends SVGStage {
     #dx;
     #dy;
@@ -166,8 +154,6 @@ class Plot extends SVGStage {
     }
 
     drawGridlines(xIncrement = 1, yIncrement = 1, properties = {}, properties2 = {}) {
-        // Make a way to pass properties
-
         if (xIncrement > 0) {
             for (var x = this.#leftmostX; x <= this.#rightmostX; x += xIncrement) {
                 var startPoint = this.getSVGCoords(x, this.#bottommostY);
@@ -251,8 +237,42 @@ class Plot extends SVGStage {
         }
     }
 
-    plot(curve) {
+    drawLine(x1, y1, x2, y2) {
+        var lineElement = new SVGLine(x1, y1, x2, y2);
+        this.addElement(lineElement);
+        
+        return lineElement;
+    }
 
+    addText(text, x, y, anchor) {
+        var textElement = new SVGText(text, x, y, anchor);
+        this.addElement(textElement);
+        
+        return textElement;
+    }
+
+    drawPath(pathString) {
+        var pathElement = new SVGPath(pathString);
+        this.addElement(pathElement);
+
+        return pathElement;
+    }
+
+    drawCurve(x, y, startT, endT, numPts) {
+        var tIncrement = (endT - startT) / numPts;
+
+        var point = this.getSVGCoords(x(startT), y(startT));
+        var pathString = "M " + point.x + " " + point.y + " ";
+
+        for (var t = startT + tIncrement; t <= endT; t += tIncrement) {
+            point = this.getSVGCoords(x(t), y(t));
+            pathString += "L " + point.x + " " + point.y + " ";
+        }
+
+        var curveElement = new SVGPath(pathString);
+        this.addElement(curveElement);
+
+        return curveElement;
     }
 }
 
