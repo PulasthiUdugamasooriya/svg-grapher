@@ -15,28 +15,58 @@ class SVGLine {
         lineElement.setAttribute("x2", x2);
         lineElement.setAttribute("y2", y2);
 
+        this.#htmlElement = lineElement;
+
+        this.setProperties({
+            "stroke" : "black",
+            "stroke-width" : 1,
+        });
+
         return lineElement;
     }
 
     setProperties(properties) {
-
+        for (property in properties) {
+            this.#htmlElement.setAttribute(property, properties[property]);
+        }
     }
 
     setProperty(property, value) {
-
-    }
-
-lineElement.setAttribute("stroke-width", properties["width"]);
-        lineElement.setAttribute("stroke", properties["color"]);
-
-    , properties = {
-        "width" : 1,
-        "color" : "black",
+        this.#htmlElement.setAttribute(property, value);
     }
 }
 
 class SVGText {
+    constructor(text, x, y, anchor) {
+        // look at text wrapping. needs to be set with css.
 
+        // baseline thing is not working as i thought. fix it or just manually position the text and remove 
+        // that argument called baseline.
+
+        var textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
+
+        textElement.setAttribute("x", x);
+        textElement.setAttribute("y", y);
+
+        textElement.setAttribute("text-anchor", anchor);
+        textElement.setAttribute("font-size", properties["font-size"]);
+        textElement.setAttribute("dominant-baseline", baselines[baseline]);
+        
+        textElement.setAttribute("style",
+            "color: " + properties["color"] + "; " +
+            "font-family: " + properties["font-family"] + ";"
+        );
+
+        textElement.innerHTML = text;
+        
+        this.#htmlElement.appendChild(textElement);
+
+        return textElement;
+    }
+
+    "font-family" : "Arial",
+        "font-size" : 12,
+        "color" : "black",
 }
 
 class SVGPath {
