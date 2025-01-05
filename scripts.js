@@ -1,3 +1,41 @@
+class Vector {
+    constructor(x, y, z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+
+        this.magnitude = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2) + Math.pow(z, 2));
+    }
+
+    add(v) {
+        return new Vector((this.x + v.x), (this.y + v.y), (this.z + v.z));
+    }
+
+    scale(lambda) {
+        return new Vector((this.x * lambda), (this.y * lambda), (this.z * lambda));
+    }
+
+    dot(v) {
+        return (this.x * v.x) + (this.y * v.y) + (this.z * v.z);
+    }
+
+    cross(v) {
+        var x = (this.y * v.z) - (v.y * this.z);
+        var y = -(this.x * v.z) + (v.x * this.z);
+        var z = (this.x * v.y) - (v.x * this.y);
+        return new Vector(x, y, z);
+    }
+
+    static dotProduct(a, b) {
+        return a.dot(b);
+    }
+
+    static crossProduct(a, b) {
+        return a.cross(b);
+    }
+}
+
+
 class SVGElement {
     htmlElement;
 
@@ -67,26 +105,24 @@ class SVGPath extends SVGElement {
     }
 }
 
-class SVGStage {
-    htmlElement
-
+class SVGStage extends SVGElement {
     width;
     height;
 
-    constructor(parentElement) {        
+    constructor(parentElement) {
+        super("svg");
+        
         this.width = parentElement.clientWidth;
         this.height = parentElement.clientHeight;
 
-        var htmlElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.setProperties({
+            "width" : this.width,
+            "height" : this.height,
+            "preserveAspectRatio" : "none",
+            "viewBox" : "0 0 " + this.width + " " + this.height
+        });
 
-        htmlElement.setAttribute("width", this.width);
-        htmlElement.setAttribute("height", this.height);
-        htmlElement.setAttribute("preserveAspectRatio", "none");
-        htmlElement.setAttribute("viewBox", "0 0 " + this.width + " " + this.height);
-
-        this.htmlElement = htmlElement;
-
-        parentElement.appendChild(htmlElement);
+        parentElement.appendChild(this.htmlElement);
     }
 
     addElement(element) {
@@ -238,7 +274,9 @@ class Plot extends SVGStage {
     }
 
     drawLine(x1, y1, x2, y2) {
-        var lineElement = new SVGLine(x1, y1, x2, y2);
+        var startPt = this.getSVGCoords(x1, y1);
+        var endPt = this.getSVGCoords(x2, y2);
+        var lineElement = new SVGLine(startPt.x, startPt.y, endPt.x, endPt.y);
         this.addElement(lineElement);
         
         return lineElement;
@@ -276,11 +314,109 @@ class Plot extends SVGStage {
     }
 }
 
+class Plot3D extends Plot {
+    constructor(parentElement, eye, distance, xAxis, yAxis) {
+        super(parentElement, -30, 30, -10, 10);
+
+        this.E = eye;
+        this.D = distance;
+        this.X = xAxis;
+        this.Y = yAxis;
+    }
+
+    getProjectionOf(point) {
+        var rMinusE = point.add(this.E.scale(-1));
+        
+        var xCoord = this.D * Vector.dotProduct(rMinusE, this.X);
+        var yCoord = this.D * Vector.dotProduct(rMinusE, this.Y);
+
+        var denominator = Vector.dotProduct(rMinusE, this.X.cross(this.Y));
+
+        return {
+            "x" : xCoord / denominator,
+            "y" : yCoord / denominator,
+        }
+    }
+}
+
 var stage = document.getElementById('mid2');
-var plot = new Plot(stage, -7, 10, -2, 2);
-plot.drawGridlines();
-plot.drawCoordinateAxes();
-plot.displayNumbers();
+var eye = new Vector(12, 12, 6);
+var xAxis = new Vector(1, -1, 0);
+xAxis = xAxis.scale(1/xAxis.magnitude);
+var yAxis = new Vector(-1, -1, 3);
+yAxis = yAxis.scale(1/yAxis.magnitude);
+var plot = new Plot3D(stage, eye, 20, xAxis, yAxis);
+
+var prevPt = plot.getProjectionOf(new Vector(0, 0, 0));
+for (var i = 20; i > -10; i--) {
+    var pt = new Vector(i, 0, 0);
+    var projectedCoords = plot.getProjectionOf(pt);
+    plot.drawLine(prevPt.x, prevPt.y, projectedCoords.x, projectedCoords.y);
+    plot.drawLine(projectedCoords.x - 0.2, projectedCoords.y, projectedCoords.x + 0.2, projectedCoords.y);
+    prevPt = projectedCoords;
+}
+
+var prevPt = plot.getProjectionOf(new Vector(0, 0, 0));
+for (var i = 20; i > -10; i--) {
+    var pt = new Vector(0, i, 0);
+    var projectedCoords = plot.getProjectionOf(pt);
+    plot.drawLine(prevPt.x, prevPt.y, projectedCoords.x, projectedCoords.y);
+    plot.drawLine(projectedCoords.x - 0.2, projectedCoords.y, projectedCoords.x + 0.2, projectedCoords.y);
+    prevPt = projectedCoords;
+}
+
+var prevPt = plot.getProjectionOf(new Vector(0, 0, 0));
+for (var i = 5; i > -10; i--) {
+    var pt = new Vector(0, 0, i);
+    var projectedCoords = plot.getProjectionOf(pt);
+    plot.drawLine(prevPt.x, prevPt.y, projectedCoords.x, projectedCoords.y);
+    plot.drawLine(projectedCoords.x - 0.2, projectedCoords.y, projectedCoords.x + 0.2, projectedCoords.y);
+    prevPt = projectedCoords;
+}
+
+var A = new Vector(4, 0, 0);
+var B = new Vector(7, 0, 0);
+var C = new Vector(7, 3, 0);
+var D = new Vector(4, 3, 0);
+var E = new Vector(4, 0, 0);
+
+var F = new Vector(4, 0, 3);
+var G = new Vector(7, 0, 3);
+var H = new Vector(7, 3, 3);
+var I = new Vector(4, 3, 3);
+var J = new Vector(4, 0, 3);
+
+var arr = [A, B, C, D, E, F, G, H, I, J];
+for (var i = 1; i < arr.length; i++) {
+    var start = plot.getProjectionOf(arr[i-1]);
+    var end = plot.getProjectionOf(arr[i]);
+    plot.drawLine(start.x, start.y, end.x, end.y);
+}
+
+start = plot.getProjectionOf(B);
+end = plot.getProjectionOf(G);
+plot.drawLine(start.x, start.y, end.x, end.y);
+start = plot.getProjectionOf(C);
+end = plot.getProjectionOf(H);
+plot.drawLine(start.x, start.y, end.x, end.y);
+start = plot.getProjectionOf(D);
+end = plot.getProjectionOf(I);
+plot.drawLine(start.x, start.y, end.x, end.y);
+
+
+// var prevEndPt = [0, -2];
+// var angle = (Math.PI/180) * 45;
+// for (var a = 1; a < 10; a++) {
+//     var distance = 1/a;
+//     startPt = [prevEndPt[0], prevEndPt[1]];
+//     prevEndPt = [startPt[0] + distance*Math.cos(angle), startPt[1] + distance*Math.sin(angle)]
+//     plot.drawLine(-7, prevEndPt[1], 10, prevEndPt[1]);
+// }
+
+// for (var a = -15; a < 20; a++) {
+//     plot.drawLine(0 + a, -2, prevEndPt[0] + a/2, prevEndPt[1]);
+//     plot.drawLine(prevEndPt[0] + a/2, prevEndPt[1] + 0.5, 0 + a, 1);
+// }
 
 function blankSvgGraph(parentElement, leftmostX, rightmostX, xInc, bottommostY, topmostY, yInc) {
     var svgGraph = document.createElementNS("http://www.w3.org/2000/svg", "svg");
