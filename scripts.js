@@ -537,8 +537,10 @@ function lookAround(e) {
     if (clicked) {
         plot.clear();
 
-        var x = e.clientX - lookX;
-        var y = e.clientY - lookY;
+        var x = (e.clientX - lookX) / window.innerWidth;
+        x *= Math.PI;
+        var y = (e.clientY - lookY) / window.innerHeight;
+        y *= Math.PI;
         xAxis = new Vector(Math.sqrt(2) * Math.cos(x), -Math.sqrt(2) * Math.sin(x), 0);
         xAxis = xAxis.scale(1/xAxis.magnitude);
         yAxis = new Vector(0, -Math.sqrt(2) * Math.sin(y), Math.sqrt(2) * Math.cos(y));
@@ -551,16 +553,15 @@ function lookAround(e) {
 }
 
 document.addEventListener("keydown", walk);
-// document.addEventListener("mousedown", lookAround1);
-// document.addEventListener("mousemove", lookAround);
-// document.addEventListener("mouseup", (e) => {clicked = false});
+document.addEventListener("mousedown", lookAround1);
+document.addEventListener("mousemove", lookAround);
+document.addEventListener("mouseup", (e) => {clicked = false});
 
 // function f(x, y) {
 //     return (Math.pow(x, 2) + Math.pow(y, 2)) / 2;
 // }
 
 // plot.drawSurface(f, [-5, -5], [5, 5], 10);
-
 
 // var prevEndPt = [0, -2];
 // var angle = (Math.PI/180) * 45;
