@@ -402,33 +402,46 @@ class Plot3D extends PlotSpace {
 }
 
 var stage = document.getElementById('mid2');
-var eye = new Vector(20, 20, 10);
-var xAxis = new Vector(1, -1, 0);
+var eye = new Vector(5, 13, 5);
+var xAxis = new Vector(1, -0.1, 0);
 xAxis = xAxis.scale(1/xAxis.magnitude);
-var yAxis = new Vector(-1, -1, 3);
+var yAxis = new Vector(0, 0, 1);
 yAxis = yAxis.scale(1/yAxis.magnitude);
-var plot = new Plot3D(stage, -20, 20, -10, 10, eye, 30, xAxis, yAxis);
+var plot = new Plot3D(stage, -20, 20, -10, 10, eye, 8, xAxis, yAxis);
 
-for (var j = 20; j > -10; j--) {
-    var pt = [j, 0, 0];
-    var gridline = plot.drawLine([pt[0], pt[1] - 10, pt[2]], [pt[0], pt[1] + 7, pt[2]]);
+plot.drawLine([0, 0, -10], [0, 0, 0]);
+
+var closestXCoord = plot.E.dot(plot.X.cross(plot.Y));
+closestXCoord = closestXCoord / Vector.dotProduct(new Vector (1, 0, 0), plot.X.cross(plot.Y));
+
+var closestYCoord = plot.E.dot(plot.X.cross(plot.Y));
+closestYCoord = closestYCoord / Vector.dotProduct(new Vector (0, 1, 0), plot.X.cross(plot.Y));
+
+for (var x = -40; x < closestXCoord - 1; x++) {
+    var pt = [x, 0, 0];
+    var closestY = plot.E.dot(plot.X.cross(plot.Y)) - x * Vector.dotProduct(plot.X.cross(plot.Y), new Vector(1, 0, 0));
+    closestY = closestY / Vector.dotProduct(new Vector(0, 1, 0), plot.X.cross(plot.Y));
+    var gridline = plot.drawLine([pt[0], pt[1] - 30, pt[2]], [pt[0], closestY - 1, pt[2]]);
     gridline.setProperty("stroke", "lightgray");
-    plot.drawLine([j - 1, 0, 0], pt);
 }
 
-for (var i = 20; i > -10; i--) {
-    var pt = [0, i, 0];
-    var gridline = plot.drawLine([pt[0] - 10, pt[1], pt[2]], [pt[0] + 7, pt[1], pt[2]]);
+for (var y = -40; y < closestYCoord; y++) {
+    var pt = [0, y, 0];
+    var closestX = plot.E.dot(plot.X.cross(plot.Y)) - y * Vector.dotProduct(plot.X.cross(plot.Y), new Vector(0, 1, 0));
+    closestX = closestX / Vector.dotProduct(new Vector(1, 0, 0), plot.X.cross(plot.Y));
+    var gridline = plot.drawLine([pt[0] - 30, pt[1], pt[2]], [closestX - 1, pt[1], pt[2]]);
     gridline.setProperty("stroke", "lightgray");
-    plot.drawLine([0, i - 1, 0], pt);
 }
 
-for (var i = 20; i > -10; i--) {
-    var pt = [0, 0, i];
-    plot.drawLine([0, 0, i - 1], pt);
-    plot.drawLine([pt[0] - 0.2, pt[1] - 0.2, pt[2]], [pt[0] + 0.2, pt[1] + 0.2, pt[2]]);
+// for (var i = 20; i > -10; i--) {
+//     var pt = [0, 0, i];
+//     plot.drawLine([0, 0, i - 1], pt);
+//     plot.drawLine([pt[0] - 0.2, pt[1] - 0.2, pt[2]], [pt[0] + 0.2, pt[1] + 0.2, pt[2]]);
+// }
 
-}
+var xax = plot.drawLine([-40, 0, 0], [closestXCoord - 1, 0, 0]);
+plot.drawLine([0, -40, 0], [0, closestYCoord - 1, 0]);
+plot.drawLine([0, 0, 0], [0, 0, 10]);
 
 var A = [4, 2, 0];
 var B = [7, 2, 0];
