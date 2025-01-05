@@ -127,6 +127,10 @@ class SVGStage extends SVGElement {
     addElement(element) {
         this.htmlElement.appendChild(element.htmlElement);
     }
+
+    clear() {
+        this.htmlElement.replaceChildren();
+    }
 }
 
 class PlotSpace extends SVGStage {
@@ -330,6 +334,13 @@ class Plot3D extends PlotSpace {
         this.Y = yAxis;
     }
 
+    updateParameters(eye, distance, xAxis, yAxis) {
+        this.E = eye;
+        this.D = distance;
+        this.X = xAxis;
+        this.Y = yAxis;
+    }
+
     getProjectedCoords(point) {
         var r = new Vector(point[0], point[1], point[2]);
 
@@ -358,6 +369,43 @@ class Plot3D extends PlotSpace {
         this.addElement(lineElement);
         
         return lineElement;
+    }
+
+    gridlines(xIncrement = 1, yIncrement = 1, zIncrement = 1, properties = {}) {
+        var I = new Vector(1, 0, 0);
+        var J = new Vector(0, 1, 0);
+        var K = new Vector(0, 0, 1);
+
+        var P = this.X.cross(this.Y);
+
+        this.drawLine([0, 0, -10], [0, 0, 0]); // z axis below the surface
+        
+        var eDotP = this.E.dot(P);
+
+        var closestXCoord = eDotP / I.dot(P);
+        var closestYCoord = eDotP / J.dot(P);
+        var closestZCoord = eDotP / K.dot(P);
+
+        for (var x = -40; x < closestXCoord; x += xIncrement) {
+            var start = [x, -30, 0];
+            var endY = (eDotP - x * (I.dot(P))) / J.dot(P);
+            var end = [x, endY - 1, 0];
+            var gridline = this.drawLine(start, end);
+            gridline.setProperty("stroke", "lightgray");
+        }
+
+        for (var y = -40; y < closestYCoord; y += yIncrement) {
+            var start = [-30, y, 0];
+            var endX = (eDotP - y * J.dot(P)) / I.dot(P);
+            var end = [endX - 1, y, 0];
+            var gridline = this.drawLine(start, end);
+            gridline.setProperty("stroke", "lightgray");
+        }
+        
+        this.drawLine([-40, 0, 0], [closestXCoord - 1, 0, 0]);
+        this.drawLine([0, -40, 0], [0, closestYCoord - 1, 0]);
+
+        this.drawLine([0, 0, 0], [0, 0, closestZCoord - 10]);
     }
 
     /*
@@ -392,56 +440,42 @@ class Plot3D extends PlotSpace {
 
         return curveElement;
     }
-
-    drawFunction(f, startX, endX, numPts) {
-        var functionElement = this.drawCurve((x) => x, f, startX, endX, numPts);
-
-        return functionElement;
-    }
     */
+
+    drawSurface(f, startPoint, endPoint, numPts) {
+        // in a rectangular region
+        var xIncrement = (endPoint[0] - startPoint[0]) / numPts;
+        var yIncrement = (endPoint[1] - startPoint[1]) / numPts;
+
+        for (var x = startPoint[0]; x <= endPoint[0]; x += xIncrement) {
+            for (var y = startPoint[1]; y <= endPoint[1]; y += yIncrement) {
+                var A = [x, y, f(x, y)];
+                var B = [x + xIncrement, y, f(x + xIncrement, y)];
+                var C = [x + xIncrement, y + yIncrement, f(x + xIncrement, y + yIncrement)];
+                var D = [x, y + yIncrement, f(x, y + yIncrement)];
+
+                this.drawLine(A, B);
+                this.drawLine(B, C);
+                this.drawLine(C, D);
+            }
+        }
+    }
 }
 
 var stage = document.getElementById('mid2');
-var eye = new Vector(5, 13, 5);
-var xAxis = new Vector(1, -0.1, 0);
+
+var eyeX = 15;
+var eyeY = 10;
+var eyeZ = 5;
+
+var eye = new Vector(15, 10, 5);
+var xAxis = new Vector(1, -1, 0);
 xAxis = xAxis.scale(1/xAxis.magnitude);
-var yAxis = new Vector(0, 0, 1);
+var yAxis = new Vector(0, -0.01, 1);
 yAxis = yAxis.scale(1/yAxis.magnitude);
 var plot = new Plot3D(stage, -20, 20, -10, 10, eye, 8, xAxis, yAxis);
 
-plot.drawLine([0, 0, -10], [0, 0, 0]);
-
-var closestXCoord = plot.E.dot(plot.X.cross(plot.Y));
-closestXCoord = closestXCoord / Vector.dotProduct(new Vector (1, 0, 0), plot.X.cross(plot.Y));
-
-var closestYCoord = plot.E.dot(plot.X.cross(plot.Y));
-closestYCoord = closestYCoord / Vector.dotProduct(new Vector (0, 1, 0), plot.X.cross(plot.Y));
-
-for (var x = -40; x < closestXCoord - 1; x++) {
-    var pt = [x, 0, 0];
-    var closestY = plot.E.dot(plot.X.cross(plot.Y)) - x * Vector.dotProduct(plot.X.cross(plot.Y), new Vector(1, 0, 0));
-    closestY = closestY / Vector.dotProduct(new Vector(0, 1, 0), plot.X.cross(plot.Y));
-    var gridline = plot.drawLine([pt[0], pt[1] - 30, pt[2]], [pt[0], closestY - 1, pt[2]]);
-    gridline.setProperty("stroke", "lightgray");
-}
-
-for (var y = -40; y < closestYCoord; y++) {
-    var pt = [0, y, 0];
-    var closestX = plot.E.dot(plot.X.cross(plot.Y)) - y * Vector.dotProduct(plot.X.cross(plot.Y), new Vector(0, 1, 0));
-    closestX = closestX / Vector.dotProduct(new Vector(1, 0, 0), plot.X.cross(plot.Y));
-    var gridline = plot.drawLine([pt[0] - 30, pt[1], pt[2]], [closestX - 1, pt[1], pt[2]]);
-    gridline.setProperty("stroke", "lightgray");
-}
-
-// for (var i = 20; i > -10; i--) {
-//     var pt = [0, 0, i];
-//     plot.drawLine([0, 0, i - 1], pt);
-//     plot.drawLine([pt[0] - 0.2, pt[1] - 0.2, pt[2]], [pt[0] + 0.2, pt[1] + 0.2, pt[2]]);
-// }
-
-var xax = plot.drawLine([-40, 0, 0], [closestXCoord - 1, 0, 0]);
-plot.drawLine([0, -40, 0], [0, closestYCoord - 1, 0]);
-plot.drawLine([0, 0, 0], [0, 0, 10]);
+plot.gridlines();
 
 var A = [4, 2, 0];
 var B = [7, 2, 0];
@@ -456,13 +490,76 @@ var I = [4, 5, 3];
 var J = [4, 2, 3];
 
 var arr = [A, B, C, D, E, F, G, H, I, J];
-for (var i = 1; i < arr.length; i++) {
-    plot.drawLine(arr[i - 1], arr[i]);
+
+function drawbox() {
+    for (var i = 1; i < arr.length; i++) {
+        plot.drawLine(arr[i - 1], arr[i]);
+    }
+    
+    plot.drawLine(B, G);
+    plot.drawLine(C, H);
+    plot.drawLine(D, I);
 }
 
-plot.drawLine(B, G);
-plot.drawLine(C, H);
-plot.drawLine(D, I);
+function walk(e) {
+    plot.clear();
+
+    var key = e.key;
+    if (key == "ArrowUp") {
+        eyeY--;
+    } else if (key == "ArrowDown") {
+        eyeY++;
+    } else if (key == "ArrowRight") {
+        eyeX++;
+    } else if (key == "ArrowLeft") {
+        eyeX--;
+    }
+
+    eye = new Vector(eyeX, eyeY, eyeZ);
+    plot.updateParameters(eye, 8, xAxis, yAxis);
+    plot.gridlines();
+    drawbox();
+}
+
+drawbox();
+
+var lookX = 0;
+var lookY = 0;
+var clicked = false;
+
+function lookAround1(e) {
+    clicked = true;
+    lookX = e.clientX;
+    lookY = e.clientY;
+}
+
+function lookAround(e) {
+    if (clicked) {
+        plot.clear();
+
+        var x = e.clientX - lookX;
+        var y = e.clientY - lookY;
+        xAxis = new Vector(Math.sqrt(2) * Math.cos(x), -Math.sqrt(2) * Math.sin(x), 0);
+        xAxis = xAxis.scale(1/xAxis.magnitude);
+        yAxis = new Vector(0, -Math.sqrt(2) * Math.sin(y), Math.sqrt(2) * Math.cos(y));
+        yAxis = yAxis.scale(1/yAxis.magnitude);
+
+        plot.updateParameters(eye, 8, xAxis, yAxis);
+        plot.gridlines();
+        drawbox();
+    }
+}
+
+document.addEventListener("keydown", walk);
+// document.addEventListener("mousedown", lookAround1);
+// document.addEventListener("mousemove", lookAround);
+// document.addEventListener("mouseup", (e) => {clicked = false});
+
+// function f(x, y) {
+//     return (Math.pow(x, 2) + Math.pow(y, 2)) / 2;
+// }
+
+// plot.drawSurface(f, [-5, -5], [5, 5], 10);
 
 
 // var prevEndPt = [0, -2];
