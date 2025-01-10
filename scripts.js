@@ -345,15 +345,12 @@ class Plot3D extends PlotSpace {
         var r = new Vector(point[0], point[1], point[2]);
 
         var rMinusE = r.add(this.E.scale(-1));
-        
-        var xCoord = this.D * Vector.dotProduct(rMinusE, this.X);
-        var yCoord = this.D * Vector.dotProduct(rMinusE, this.Y);
 
-        var denominator = Vector.dotProduct(rMinusE, this.X.cross(this.Y));
+        var lambda = this.D / Vector.dotProduct(rMinusE, this.X.cross(this.Y));
         
-        xCoord /= denominator;
-        yCoord /= denominator;
-
+        var xCoord = lambda * rMinusE.dot(this.X);
+        var yCoord = lambda * rMinusE.dot(this.Y);
+        
         return [xCoord, yCoord];
     }
 
@@ -363,12 +360,46 @@ class Plot3D extends PlotSpace {
     }
 
     drawLine(start, end) {
-        var projectedStartSVG = this.getProjectedSVGCoords(start);
-        var projectedEndSVG = this.getProjectedSVGCoords(end);
-        var lineElement = new SVGLine(projectedStartSVG, projectedEndSVG);
-        this.addElement(lineElement);
+        var P = this.X.cross(this.Y);
+        var Start = new Vector(start[0], start[1], start[2]);
+        var End = new Vector(end[0], end[1], end[2]);
+
+        var StartMinusE = Start.add(this.E.scale(-1));
+        var EndMinusE = End.add(this.E.scale(-1));
+
+        var projectedStartSVG;
+        var projectedEndSVG;
+
+        if ((P.dot(StartMinusE) > 0) || (P.dot(EndMinusE) > 0)) {
+            if ((P.dot(StartMinusE) <= 0) && (P.dot(EndMinusE) > 0)) {
+                // start point is on/behind the eye plane, end point is not.
+                var lambda = (this.E.dot(P) - End.dot(P)) / (Start.dot(P) - End.dot(P));
+                var closestPoint = End.add(Start.add(End.scale(-1)).scale(lambda*0.98));
+                projectedStartSVG = this.getProjectedSVGCoords([closestPoint.x, closestPoint.y, closestPoint.z]);
+                projectedEndSVG = this.getProjectedSVGCoords(end);
+            } else if ((P.dot(EndMinusE) <= 0) && (P.dot(StartMinusE) > 0)) {
+                // end point is on/behind the plane, start point is not.
+                projectedStartSVG = this.getProjectedSVGCoords(start);
+                var lambda = (this.E.dot(P) - Start.dot(P)) / (End.dot(P) - Start.dot(P));
+                var closestPoint = Start.add(End.add(Start.scale(-1)).scale(lambda*0.98));
+                projectedEndSVG = this.getProjectedSVGCoords([closestPoint.x, closestPoint.y, closestPoint.z]);
+            } else if ((P.dot(StartMinusE) > 0) && (P.dot(EndMinusE) > 0)) {
+                projectedStartSVG = this.getProjectedSVGCoords(start);
+                projectedEndSVG = this.getProjectedSVGCoords(end);
+            }
+
+            var lineElement = new SVGLine(projectedStartSVG, projectedEndSVG);
+            this.addElement(lineElement);
+            return lineElement;
+        }
+    }
+
+    drawText(text, point, anchor) {
+        var svgPoint = this.getProjectedSVGCoords(point);
+        var textElement = new SVGText(text, svgPoint, anchor);
+        this.addElement(textElement);
         
-        return lineElement;
+        return textElement;
     }
 
     gridlines(xIncrement = 1, yIncrement = 1, zIncrement = 1, properties = {}) {
@@ -377,46 +408,78 @@ class Plot3D extends PlotSpace {
         var K = new Vector(0, 0, 1);
 
         var P = this.X.cross(this.Y);
-
-        this.drawLine([0, 0, -10], [0, 0, 0]); // z axis below the surface
         
         var eDotP = this.E.dot(P);
 
-        var closestXCoord = eDotP / I.dot(P);
-        var closestYCoord = eDotP / J.dot(P);
-        var closestZCoord = eDotP / K.dot(P);
+        var closestXCoord = (eDotP + 1) / I.dot(P);
+        var closestYCoord = (eDotP + 1) / J.dot(P);
+        var closestZCoord = (eDotP + 1) / K.dot(P);
 
-        for (var x = -40; x < closestXCoord; x += xIncrement) {
-            var start = [x, -30, 0];
-            var endY = (eDotP - x * (I.dot(P))) / J.dot(P);
-            var end = [x, endY - 1, 0];
-            var gridline = this.drawLine(start, end);
-            gridline.setProperty("stroke", "lightgray");
+        var farthestXCoord = (eDotP + 50) / I.dot(P);
+        var farthestYCoord = (eDotP + 50) / J.dot(P);
+        var farthestZCoord = (eDotP + 50) / K.dot(P);
+
+        var xStart, yStart, zStart, xEnd, yEnd, zEnd;
+
+        if (closestXCoord < farthestXCoord) {
+            xStart = closestXCoord;
+            xEnd = farthestXCoord;
+        } else {
+            xStart = farthestXCoord;
+            xEnd = closestXCoord;
         }
 
-        for (var y = -40; y < closestYCoord; y += yIncrement) {
-            var start = [-30, y, 0];
-            var endX = (eDotP - y * J.dot(P)) / I.dot(P);
-            var end = [endX - 1, y, 0];
+        if (closestYCoord < farthestYCoord) {
+            xStart = closestYCoord;
+            yEnd = farthestYCoord;
+        } else {
+            yStart = farthestYCoord;
+            yEnd = closestYCoord;
+        }
+
+        if (closestZCoord < farthestZCoord) {
+            zStart = closestZCoord;
+            zEnd = farthestZCoord;
+        } else {
+            zStart = farthestZCoord;
+            zEnd = closestZCoord;
+        }
+
+        this.drawLine([0, 0, farthestZCoord], [0, 0, 0]); // z axis below the surface
+
+        for (var x = xStart; x < xEnd; x += xIncrement) {
+            var start = [x, (eDotP + 50 - x * (I.dot(P))) / J.dot(P), 0];
+            var endY = (eDotP + 1 - x * (I.dot(P))) / J.dot(P);
+            var end = [x, endY, 0];
             var gridline = this.drawLine(start, end);
-            gridline.setProperty("stroke", "lightgray");
+            if (gridline) {
+                gridline.setProperty("stroke", "lightgray");
+            }
+        }
+
+        for (var y = yStart; y < yEnd; y += yIncrement) {
+            var start = [(eDotP + 50 - y * J.dot(P)) / I.dot(P), y, 0];
+            var endX = (eDotP + 1 - y * J.dot(P)) / I.dot(P);
+            var end = [endX, y, 0];
+            var gridline = this.drawLine(start, end);
+            if (gridline) {
+                gridline.setProperty("stroke", "lightgray");
+            }
         }
         
-        this.drawLine([-40, 0, 0], [closestXCoord - 1, 0, 0]);
-        this.drawLine([0, -40, 0], [0, closestYCoord - 1, 0]);
+        var xAx1 = this.drawLine([farthestXCoord, 0, 0], [closestXCoord, 0, 0]);
+        var yAx1 = this.drawLine([0, farthestYCoord, 0], [0, closestYCoord, 0]);
+        // var yAx2 = this.drawLine([0, 0, 0], [0, closestYCoord, 0]);
+        // console.log("YAX done");
+        // yAx1.setProperty("stroke", "green");
+        // yAx2.setProperty("stroke", "red");
 
-        this.drawLine([0, 0, 0], [0, 0, closestZCoord - 10]);
+        this.drawLine([0, 0, 0], [0, 0, closestZCoord]);
     }
+
+    drawGridlines() {}
 
     /*
-    drawText(text, point, anchor) {
-        var svgPoint = this.getSVGCoords(point);
-        var textElement = new SVGText(text, svgPoint, anchor);
-        this.addElement(textElement);
-        
-        return textElement;
-    }
-
     drawPath(pathString) {
         var pathElement = new SVGPath(pathString);
         this.addElement(pathElement);
@@ -468,14 +531,26 @@ var eyeX = 15;
 var eyeY = 10;
 var eyeZ = 5;
 
-var eye = new Vector(15, 10, 5);
-var xAxis = new Vector(1, -1, 0);
-xAxis = xAxis.scale(1/xAxis.magnitude);
-var yAxis = new Vector(0, -0.01, 1);
-yAxis = yAxis.scale(1/yAxis.magnitude);
-var plot = new Plot3D(stage, -20, 20, -10, 10, eye, 8, xAxis, yAxis);
+var xyAngle = -Math.PI/3;
+var xzAngle = 0.1;
+
+var zoomAmt = 15;
+
+var eye = new Vector(eyeX, eyeY, eyeZ);
+var xAxis = new Vector(Math.cos(xyAngle), Math.sin(xyAngle), 0);
+// xAxis = xAxis.scale(1/xAxis.magnitude);
+var yAxis = new Vector(Math.sin(xzAngle) * Math.sin(xyAngle), Math.sin(xzAngle) * Math.cos(xyAngle), Math.cos(xzAngle));
+// yAxis = yAxis.scale(1/yAxis.magnitude);
+var plot = new Plot3D(stage, -20, 20, -10, 10, eye, zoomAmt, xAxis, yAxis);
 
 plot.gridlines();
+
+for (var i = 1; i < 18; i++) {
+    var label = plot.drawText(i, [i, 0, -0.6], "end");
+    label.setProperty("font-size", Math.abs(12*i)/(i+1));
+    label = plot.drawText(i, [0, i, -0.6], "end");
+    label.setProperty("font-size", Math.abs(12*i)/(i+1));
+}
 
 var A = [4, 2, 0];
 var B = [7, 2, 0];
@@ -490,10 +565,12 @@ var I = [4, 5, 3];
 var J = [4, 2, 3];
 
 var arr = [A, B, C, D, E, F, G, H, I, J];
+var colors = ["red", "green", "blue", "pink", "yellow", "orange", "violet", "black", "green"];
 
 function drawbox() {
     for (var i = 1; i < arr.length; i++) {
-        plot.drawLine(arr[i - 1], arr[i]);
+        var l = plot.drawLine(arr[i - 1], arr[i]);
+        l.setProperty("stroke", colors[i-1]);
     }
     
     plot.drawLine(B, G);
@@ -516,7 +593,7 @@ function walk(e) {
     }
 
     eye = new Vector(eyeX, eyeY, eyeZ);
-    plot.updateParameters(eye, 8, xAxis, yAxis);
+    plot.updateParameters(eye, zoomAmt, xAxis, yAxis);
     plot.gridlines();
     drawbox();
 }
@@ -538,24 +615,38 @@ function lookAround(e) {
         plot.clear();
 
         var x = (e.clientX - lookX) / window.innerWidth;
-        x *= Math.PI;
-        var y = (e.clientY - lookY) / window.innerHeight;
-        y *= Math.PI;
-        xAxis = new Vector(Math.sqrt(2) * Math.cos(x), -Math.sqrt(2) * Math.sin(x), 0);
-        xAxis = xAxis.scale(1/xAxis.magnitude);
-        yAxis = new Vector(0, -Math.sqrt(2) * Math.sin(y), Math.sqrt(2) * Math.cos(y));
-        yAxis = yAxis.scale(1/yAxis.magnitude);
+        x *= Math.PI/6;
+        xyAngle += x;
+        var y = (lookY - e.clientY) / window.innerHeight;
+        eyeZ += y * 3;
+        eye = new Vector(eyeX, eyeY, eyeZ);
+        // y *= Math.PI/6;
+        // xzAngle += y;
+        lookX = e.clientX;
+        lookY = e.clientY;
+        
+        xAxis = new Vector(Math.cos(xyAngle), Math.sin(xyAngle), 0);
+        yAxis = new Vector(Math.sin(xzAngle) * Math.sin(xyAngle), Math.sin(xzAngle) * Math.cos(xyAngle), Math.cos(xzAngle));
 
-        plot.updateParameters(eye, 8, xAxis, yAxis);
+        plot.updateParameters(eye, zoomAmt, xAxis, yAxis);
         plot.gridlines();
         drawbox();
     }
+}
+
+function zoom(e) {
+    plot.clear();
+    zoomAmt += e.deltaY * 0.1;
+    plot.updateParameters(eye, zoomAmt, xAxis, yAxis);
+    plot.gridlines();
+    drawbox();
 }
 
 document.addEventListener("keydown", walk);
 document.addEventListener("mousedown", lookAround1);
 document.addEventListener("mousemove", lookAround);
 document.addEventListener("mouseup", (e) => {clicked = false});
+document.addEventListener("wheel", zoom);
 
 // function f(x, y) {
 //     return (Math.pow(x, 2) + Math.pow(y, 2)) / 2;
