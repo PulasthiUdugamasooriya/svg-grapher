@@ -11,6 +11,10 @@ class Vector {
         return new Vector((this.x + v.x), (this.y + v.y), (this.z + v.z));
     }
 
+    subtract(v) {
+        return new Vector((this.x - v.x), (this.y - v.y), (this.z - v.z));
+    }
+
     scale(lambda) {
         return new Vector((this.x * lambda), (this.y * lambda), (this.z * lambda));
     }
@@ -24,6 +28,10 @@ class Vector {
         var y = -(this.x * v.z) + (v.x * this.z);
         var z = (this.x * v.y) - (v.x * this.y);
         return new Vector(x, y, z);
+    }
+
+    unitVector() {
+        return this.scale(1 / this.magnitude);
     }
 
     static dotProduct(a, b) {
@@ -330,27 +338,29 @@ class Plot3D extends PlotSpace {
 
         this.E = eye;
         this.D = distance;
-        this.X = xAxis;
-        this.Y = yAxis;
+        this.X = xAxis.unitVector();
+        this.Y = yAxis.unitVector();
+        this.P = xAxis.cross(yAxis);
     }
 
     updateParameters(eye, distance, xAxis, yAxis) {
         this.E = eye;
         this.D = distance;
-        this.X = xAxis;
-        this.Y = yAxis;
+        this.X = xAxis.unitVector();
+        this.Y = yAxis.unitVector();
+        this.P = xAxis.cross(yAxis);
     }
 
     getProjectedCoords(point) {
         var r = new Vector(point[0], point[1], point[2]);
 
-        var rMinusE = r.add(this.E.scale(-1));
+        var rMinusE = r.subtract(this.E);
 
-        var lambda = this.D / Vector.dotProduct(rMinusE, this.X.cross(this.Y));
+        var lambda = this.D / Vector.dotProduct(rMinusE, this.P);
         
         var xCoord = lambda * rMinusE.dot(this.X);
         var yCoord = lambda * rMinusE.dot(this.Y);
-        
+
         return [xCoord, yCoord];
     }
 
@@ -360,30 +370,34 @@ class Plot3D extends PlotSpace {
     }
 
     drawLine(start, end) {
-        var P = this.X.cross(this.Y);
-        var Start = new Vector(start[0], start[1], start[2]);
-        var End = new Vector(end[0], end[1], end[2]);
+        var r1 = new Vector(start[0], start[1], start[2]);
+        var r2 = new Vector(end[0], end[1], end[2]);
 
-        var StartMinusE = Start.add(this.E.scale(-1));
-        var EndMinusE = End.add(this.E.scale(-1));
+        var r1MinusE = r1.subtract(this.E);
+        var r2MinusE = r2.subtract(this.E);
 
-        var projectedStartSVG;
-        var projectedEndSVG;
+        var r1InFrontOfE = this.P.dot(r1MinusE) > 0;
+        var r2InFrontOfE = this.P.dot(r2MinusE) > 0;
 
-        if ((P.dot(StartMinusE) > 0) || (P.dot(EndMinusE) > 0)) {
-            if ((P.dot(StartMinusE) <= 0) && (P.dot(EndMinusE) > 0)) {
-                // start point is on/behind the eye plane, end point is not.
-                var lambda = (this.E.dot(P) - End.dot(P)) / (Start.dot(P) - End.dot(P));
-                var closestPoint = End.add(Start.add(End.scale(-1)).scale(lambda*0.98));
+        var projectedStartSVG, projectedEndSVG;
+
+        if (r1InFrontOfE || r2InFrontOfE) {
+            if (!r1InFrontOfE && r2InFrontOfE) {
+                // Start point is on/behind the eye; end point is in front.
+                var lambda = (this.E.subtract(r1).dot(this.P) + 1) / (r2.subtract(r1).dot(this.P));
+                var closestPoint = r1.add(r2.subtract(r1).scale(lambda));
                 projectedStartSVG = this.getProjectedSVGCoords([closestPoint.x, closestPoint.y, closestPoint.z]);
+
                 projectedEndSVG = this.getProjectedSVGCoords(end);
-            } else if ((P.dot(EndMinusE) <= 0) && (P.dot(StartMinusE) > 0)) {
-                // end point is on/behind the plane, start point is not.
+            } else if (!r2InFrontOfE && r1InFrontOfE) {
+                // End point is on/behind the eye, start point is in front.
                 projectedStartSVG = this.getProjectedSVGCoords(start);
-                var lambda = (this.E.dot(P) - Start.dot(P)) / (End.dot(P) - Start.dot(P));
-                var closestPoint = Start.add(End.add(Start.scale(-1)).scale(lambda*0.98));
+
+                var lambda = (this.E.subtract(r2).dot(this.P) + 1) / (r1.subtract(r2).dot(this.P));
+                var closestPoint = r2.add(r1.subtract(r2).scale(lambda));
                 projectedEndSVG = this.getProjectedSVGCoords([closestPoint.x, closestPoint.y, closestPoint.z]);
-            } else if ((P.dot(StartMinusE) > 0) && (P.dot(EndMinusE) > 0)) {
+            } else if (r2InFrontOfE && r1InFrontOfE) {
+                // Both points are in front of the eye.
                 projectedStartSVG = this.getProjectedSVGCoords(start);
                 projectedEndSVG = this.getProjectedSVGCoords(end);
             }
@@ -406,78 +420,47 @@ class Plot3D extends PlotSpace {
         var I = new Vector(1, 0, 0);
         var J = new Vector(0, 1, 0);
         var K = new Vector(0, 0, 1);
-
-        var P = this.X.cross(this.Y);
         
-        var eDotP = this.E.dot(P);
+        var eDotP = this.E.dot(this.P);
 
-        var closestXCoord = (eDotP + 1) / I.dot(P);
-        var closestYCoord = (eDotP + 1) / J.dot(P);
-        var closestZCoord = (eDotP + 1) / K.dot(P);
+        var closestXCoord = (eDotP + 1) / I.dot(this.P);
+        var closestYCoord = (eDotP + 1) / J.dot(this.P);
+        var closestZCoord = (eDotP + 1) / K.dot(this.P);
 
-        var farthestXCoord = (eDotP + 50) / I.dot(P);
-        var farthestYCoord = (eDotP + 50) / J.dot(P);
-        var farthestZCoord = (eDotP + 50) / K.dot(P);
+        var farthestXCoord = (eDotP + 50) / I.dot(this.P);
+        var farthestYCoord = (eDotP + 50) / J.dot(this.P);
+        var farthestZCoord = (eDotP + 50) / K.dot(this.P);
 
-        var xStart, yStart, zStart, xEnd, yEnd, zEnd;
-
-        if (closestXCoord < farthestXCoord) {
-            xStart = closestXCoord;
-            xEnd = farthestXCoord;
-        } else {
-            xStart = farthestXCoord;
-            xEnd = closestXCoord;
-        }
-
-        if (closestYCoord < farthestYCoord) {
-            xStart = closestYCoord;
-            yEnd = farthestYCoord;
-        } else {
-            yStart = farthestYCoord;
-            yEnd = closestYCoord;
-        }
-
-        if (closestZCoord < farthestZCoord) {
-            zStart = closestZCoord;
-            zEnd = farthestZCoord;
-        } else {
-            zStart = farthestZCoord;
-            zEnd = closestZCoord;
-        }
+        xIncrement *= (farthestXCoord - closestXCoord) / Math.abs(farthestXCoord - closestXCoord);
+        yIncrement *= (farthestYCoord - closestYCoord) / Math.abs(farthestYCoord - closestYCoord);
 
         this.drawLine([0, 0, farthestZCoord], [0, 0, 0]); // z axis below the surface
 
-        for (var x = xStart; x < xEnd; x += xIncrement) {
-            var start = [x, (eDotP + 50 - x * (I.dot(P))) / J.dot(P), 0];
-            var endY = (eDotP + 1 - x * (I.dot(P))) / J.dot(P);
-            var end = [x, endY, 0];
+        for (var x = Math.round(closestXCoord); Math.abs(x) < Math.abs(farthestXCoord); x += xIncrement) {
+            var start = [x, (eDotP + 50 - x * I.dot(this.P)) / J.dot(this.P), 0];
+            var end = [x, (eDotP + 1 - x * I.dot(this.P)) / J.dot(this.P), 0];
             var gridline = this.drawLine(start, end);
             if (gridline) {
                 gridline.setProperty("stroke", "lightgray");
             }
         }
 
-        for (var y = yStart; y < yEnd; y += yIncrement) {
-            var start = [(eDotP + 50 - y * J.dot(P)) / I.dot(P), y, 0];
-            var endX = (eDotP + 1 - y * J.dot(P)) / I.dot(P);
-            var end = [endX, y, 0];
+        for (var y = Math.round(closestYCoord); Math.abs(y) < Math.abs(farthestYCoord); y += yIncrement) {
+            var start = [(eDotP + 50 - y * J.dot(this.P)) / I.dot(this.P), y, 0];
+            var end = [(eDotP + 1 - y * J.dot(this.P)) / I.dot(this.P), y, 0];
             var gridline = this.drawLine(start, end);
             if (gridline) {
                 gridline.setProperty("stroke", "lightgray");
             }
         }
         
-        var xAx1 = this.drawLine([farthestXCoord, 0, 0], [closestXCoord, 0, 0]);
-        var yAx1 = this.drawLine([0, farthestYCoord, 0], [0, closestYCoord, 0]);
-        // var yAx2 = this.drawLine([0, 0, 0], [0, closestYCoord, 0]);
-        // console.log("YAX done");
-        // yAx1.setProperty("stroke", "green");
-        // yAx2.setProperty("stroke", "red");
+        this.drawLine([farthestXCoord, 0, 0], [closestXCoord, 0, 0]);
+        this.drawLine([0, farthestYCoord, 0], [0, closestYCoord, 0]);
 
         this.drawLine([0, 0, 0], [0, 0, closestZCoord]);
     }
 
-    drawGridlines() {}
+    coordinateAxes() {}
 
     /*
     drawPath(pathString) {
@@ -538,9 +521,8 @@ var zoomAmt = 15;
 
 var eye = new Vector(eyeX, eyeY, eyeZ);
 var xAxis = new Vector(Math.cos(xyAngle), Math.sin(xyAngle), 0);
-// xAxis = xAxis.scale(1/xAxis.magnitude);
 var yAxis = new Vector(Math.sin(xzAngle) * Math.sin(xyAngle), Math.sin(xzAngle) * Math.cos(xyAngle), Math.cos(xzAngle));
-// yAxis = yAxis.scale(1/yAxis.magnitude);
+
 var plot = new Plot3D(stage, -20, 20, -10, 10, eye, zoomAmt, xAxis, yAxis);
 
 plot.gridlines();
