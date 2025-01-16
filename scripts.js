@@ -66,10 +66,10 @@ class SVGLine extends SVGElement {
         var lineElement = super("line");
 
         lineElement.setProperties({
-            "x1" : start[0],
-            "y1" : start[1],
-            "x2" : end[0],
-            "y2" : end[1],
+            "x1" : start.x,
+            "y1" : start.y,
+            "x2" : end.x,
+            "y2" : end.y,
             "stroke" : "black",
             "stroke-width" : 1,
         });
@@ -84,8 +84,8 @@ class SVGText extends SVGElement {
         var textElement = super("text");
 
         textElement.setProperties({
-            "x" : point[0],
-            "y" : point[1],
+            "x" : point.x,
+            "y" : point.y,
             "text-anchor" : anchor,
             "font-family" : "Arial",
             "font-size" : 12,
@@ -163,9 +163,9 @@ class PlotSpace extends SVGStage {
     }
 
     getSVGCoords(point) {
-        var svgX = (point[0] * this.#dx) + this.#originX;
-        var svgY = this.#originY - (point[1] * this.#dy);
-        return [svgX, svgY];
+        var svgX = (point.x * this.#dx) + this.#originX;
+        var svgY = this.#originY - (point.y * this.#dy);
+        return new Vector(svgX, svgY, 0);
     }
 
     getSVGPathString(userCoordString) {
@@ -178,14 +178,15 @@ class PlotSpace extends SVGStage {
             var x = parseFloat(entries[entryIndex + 1]);
             var y = parseFloat(entries[entryIndex + 2]);
 
+            var svgCoords;
+
             if (command === command.toLowerCase()) {
-                x *= this.#dx;
-                y *= this.#dy;
+                svgCoords = new Vector(x * this.#dx, y * this.#dy, 0);
             } else {
-                [x, y] = this.getSVGCoords([x, y]);
+                svgCoords = this.getSVGCoords(new Vector(x, y, 0));
             }
 
-            svgPathString += command + " " + x + " " + y + " ";
+            svgPathString += command + " " + svgCoords.x + " " + svgCoords.y + " ";
         }
 
         return svgPathString;
@@ -224,12 +225,12 @@ class Plot2D extends PlotSpace {
     drawCurve(x, y, startT, endT, numPts) {
         var tIncrement = (endT - startT) / numPts;
 
-        var startPoint = this.getSVGCoords([x(startT), y(startT)]);
-        var pathString = "M " + startPoint[0] + " " + startPoint[1] + " ";
+        var startPoint = this.getSVGCoords(new Vector(x(startT), y(startT), 0));
+        var pathString = "M " + startPoint.x + " " + startPoint.y + " ";
 
         for (var t = startT + tIncrement; t <= endT; t += tIncrement) {
-            var nextPoint = this.getSVGCoords([x(t), y(t)]);
-            pathString += "L " + nextPoint[0] + " " + nextPoint[1] + " ";
+            var nextPoint = this.getSVGCoords(new Vector(x(t), y(t), 0));
+            pathString += "L " + nextPoint.x + " " + nextPoint.y + " ";
         }
 
         var curveElement = new SVGPath(pathString);
@@ -248,7 +249,7 @@ class Plot2D extends PlotSpace {
         // Is this repetition of the same code ok?
         if (xIncrement > 0) {
             for (var x = this.leftmostX; x <= this.rightmostX; x += xIncrement) {
-                var line = this.drawLine([x, this.bottommostY], [x, this.topmostY]);
+                var line = this.drawLine(new Vector(x, this.bottommostY, 0), new Vector(x, this.topmostY, 0));
                 
                 line.setProperty("stroke", "lightgray");
                 if ("xGridlines" in properties) {
@@ -259,7 +260,7 @@ class Plot2D extends PlotSpace {
 
         if (yIncrement > 0) {
             for (var y = this.bottommostY; y <= this.topmostY; y += yIncrement) {
-                var line = this.drawLine([this.leftmostX], [y, this.rightmostX, y]);
+                var line = this.drawLine(new Vector(this.leftmostX, y, 0), new Vector(this.rightmostX, y, 0));
                 
                 line.setProperty("stroke", "lightgray");
                 if ("yGridlines" in properties) {
@@ -275,29 +276,29 @@ class Plot2D extends PlotSpace {
         "yAxis" : {}
     }) {
         if ("xAxis" in properties) {
-            var xAxis = this.drawLine([this.leftmostX, 0], [this.rightmostX, 0]);
+            var xAxis = this.drawLine(new Vector(this.leftmostX, 0, 0), new Vector(this.rightmostX, 0, 0));
             xAxis.setProperties(properties["xAxis"]);
 
-            var rightmostPoint = this.getSVGCoords([this.rightmostX, 0]);
-            var xArrowPath = "M " + rightmostPoint[0] + " " + rightmostPoint[1] + " m -5 -2 l 5 2 l -5 2";
+            var rightmostPoint = this.getSVGCoords(new Vector(this.rightmostX, 0, 0));
+            var xArrowPath = "M " + rightmostPoint.x + " " + rightmostPoint.y + " m -5 -2 l 5 2 l -5 2";
             var xArrow = new SVGPath(xArrowPath);
             this.addElement(xArrow);
 
-            var xLabel = new SVGText("x", [rightmostPoint[0] - 5, rightmostPoint[1] + 12], "end");
+            var xLabel = new SVGText("x", new Vector(rightmostPoint.x - 5, rightmostPoint.y + 12, 0), "end");
             xLabel.setProperty("font-family", "MJXTEX-I");
             this.addElement(xLabel);
         }
 
         if ("yAxis" in properties) {
-            var yAxis = this.drawLine([0, this.bottommostY], [0, this.topmostY]);
+            var yAxis = this.drawLine(new Vector(0, this.bottommostY, 0), new Vector(0, this.topmost, 0));
             yAxis.setProperties(properties["yAxis"]);
 
-            var topmostPoint = this.getSVGCoords([0, this.topmostY]);
-            var yArrowPath = "M " + topmostPoint[0] + " " + topmostPoint[1] + " m -5 2 l 5 -2 l 5 2";
+            var topmostPoint = this.getSVGCoords(new Vector(0, this.topmostY, 0));
+            var yArrowPath = "M " + topmostPoint.x + " " + topmostPoint.y + " m -5 2 l 5 -2 l 5 2";
             var yArrow = new SVGPath(yArrowPath);
             this.addElement(yArrow);
 
-            var yLabel = new SVGText("y", [topmostPoint[0] - 5, topmostPoint[1] + 12], "end");
+            var yLabel = new SVGText("y", new Vector(topmostPoint.x - 5, topmostPoint.y + 12, 0), "end");
             yLabel.setProperty("font-family", "MJXTEX-I");
             this.addElement(yLabel);
         }
@@ -306,9 +307,9 @@ class Plot2D extends PlotSpace {
     displayNumbers(xIncrement = 1, yIncrement = 1, properties = {}) {
         if (xIncrement > 0) {
             for (var x = this.leftmostX; x < this.rightmostX; x += xIncrement) {
-                var numberPosition = this.getSVGCoords([x, 0]);
+                var numberPosition = this.getSVGCoords(new Vector(x, 0, 0));
 
-                var number = new SVGText(x, [numberPosition[0] - 5, numberPosition[1] + 12], "end");
+                var number = new SVGText(x, new Vector(numberPosition.x - 5, numberPosition.y + 12, 0), "end");
                 number.setProperty("font-family", "MJXTEX");
                 if ("xNumbers" in properties) {
                     number.setProperties(properties["xNumbers"]);
@@ -319,9 +320,9 @@ class Plot2D extends PlotSpace {
 
         if (yIncrement > 0) {
             for (var y = this.bottommostY; y < this.topmostY; y += yIncrement) {
-                var numberPosition = this.getSVGCoords([0, y]);
+                var numberPosition = this.getSVGCoords(new Vector(0, y, 0));
 
-                var number = new SVGText(y, [numberPosition[0] - 5, numberPosition[1] + 12], "end");
+                var number = new SVGText(y, new Vector(numberPosition.x - 5, numberPosition.y + 12, 0), "end");
                 number.setProperty("font-family", "MJXTEX");
                 if ("yNumbers" in properties) {
                     number.setProperties(properties["yNumbers"]);
@@ -352,16 +353,14 @@ class Plot3D extends PlotSpace {
     }
 
     getProjectedCoords(point) {
-        var r = new Vector(point[0], point[1], point[2]);
-
-        var rMinusE = r.subtract(this.E);
+        var rMinusE = point.subtract(this.E);
 
         var lambda = this.D / Vector.dotProduct(rMinusE, this.P);
         
         var xCoord = lambda * rMinusE.dot(this.X);
         var yCoord = lambda * rMinusE.dot(this.Y);
 
-        return [xCoord, yCoord];
+        return new Vector(xCoord, yCoord, 0);
     }
 
     getProjectedSVGCoords(point) {
@@ -370,33 +369,30 @@ class Plot3D extends PlotSpace {
     }
 
     drawLine(start, end) {
-        var r1 = new Vector(start[0], start[1], start[2]);
-        var r2 = new Vector(end[0], end[1], end[2]);
+        var startMinusE = start.subtract(this.E);
+        var endMinusE = end.subtract(this.E);
 
-        var r1MinusE = r1.subtract(this.E);
-        var r2MinusE = r2.subtract(this.E);
-
-        var r1InFrontOfE = this.P.dot(r1MinusE) > 0;
-        var r2InFrontOfE = this.P.dot(r2MinusE) > 0;
+        var startInFrontOfE = this.P.dot(startMinusE) > 0;
+        var endInFrontOfE = this.P.dot(endMinusE) > 0;
 
         var projectedStartSVG, projectedEndSVG;
 
-        if (r1InFrontOfE || r2InFrontOfE) {
-            if (!r1InFrontOfE && r2InFrontOfE) {
+        if (startInFrontOfE || endInFrontOfE) {
+            if (!startInFrontOfE && endInFrontOfE) {
                 // Start point is on/behind the eye; end point is in front.
-                var lambda = (this.E.subtract(r1).dot(this.P) + 1) / (r2.subtract(r1).dot(this.P));
-                var closestPoint = r1.add(r2.subtract(r1).scale(lambda));
-                projectedStartSVG = this.getProjectedSVGCoords([closestPoint.x, closestPoint.y, closestPoint.z]);
+                var lambda = (this.E.subtract(start).dot(this.P) + 1) / (end.subtract(start).dot(this.P));
+                var closestPoint = start.add(end.subtract(start).scale(lambda));
+                projectedStartSVG = this.getProjectedSVGCoords(closestPoint);
 
                 projectedEndSVG = this.getProjectedSVGCoords(end);
-            } else if (!r2InFrontOfE && r1InFrontOfE) {
+            } else if (!endInFrontOfE && startInFrontOfE) {
                 // End point is on/behind the eye, start point is in front.
                 projectedStartSVG = this.getProjectedSVGCoords(start);
 
-                var lambda = (this.E.subtract(r2).dot(this.P) + 1) / (r1.subtract(r2).dot(this.P));
-                var closestPoint = r2.add(r1.subtract(r2).scale(lambda));
-                projectedEndSVG = this.getProjectedSVGCoords([closestPoint.x, closestPoint.y, closestPoint.z]);
-            } else if (r2InFrontOfE && r1InFrontOfE) {
+                var lambda = (this.E.subtract(end).dot(this.P) + 1) / (start.subtract(end).dot(this.P));
+                var closestPoint = end.add(start.subtract(end).scale(lambda));
+                projectedEndSVG = this.getProjectedSVGCoords(closestPoint);
+            } else {
                 // Both points are in front of the eye.
                 projectedStartSVG = this.getProjectedSVGCoords(start);
                 projectedEndSVG = this.getProjectedSVGCoords(end);
@@ -434,11 +430,11 @@ class Plot3D extends PlotSpace {
         xIncrement *= (farthestXCoord - closestXCoord) / Math.abs(farthestXCoord - closestXCoord);
         yIncrement *= (farthestYCoord - closestYCoord) / Math.abs(farthestYCoord - closestYCoord);
 
-        this.drawLine([0, 0, farthestZCoord], [0, 0, 0]); // z axis below the surface
+        this.drawLine(new Vector(0, 0, farthestZCoord), new Vector(0, 0, 0)); // z axis below the surface
 
         for (var x = Math.round(closestXCoord); Math.abs(x) < Math.abs(farthestXCoord); x += xIncrement) {
-            var start = [x, (eDotP + 50 - x * I.dot(this.P)) / J.dot(this.P), 0];
-            var end = [x, (eDotP + 1 - x * I.dot(this.P)) / J.dot(this.P), 0];
+            var start = new Vector(x, farthestYCoord, 0);
+            var end = new Vector(x, (eDotP + 1 - x * I.dot(this.P)) / J.dot(this.P), 0);
             var gridline = this.drawLine(start, end);
             if (gridline) {
                 gridline.setProperty("stroke", "lightgray");
@@ -446,18 +442,18 @@ class Plot3D extends PlotSpace {
         }
 
         for (var y = Math.round(closestYCoord); Math.abs(y) < Math.abs(farthestYCoord); y += yIncrement) {
-            var start = [(eDotP + 50 - y * J.dot(this.P)) / I.dot(this.P), y, 0];
-            var end = [(eDotP + 1 - y * J.dot(this.P)) / I.dot(this.P), y, 0];
+            var start = new Vector(farthestXCoord, y, 0);
+            var end = new Vector((eDotP + 1 - y * J.dot(this.P)) / I.dot(this.P), y, 0);
             var gridline = this.drawLine(start, end);
             if (gridline) {
                 gridline.setProperty("stroke", "lightgray");
             }
         }
         
-        this.drawLine([farthestXCoord, 0, 0], [closestXCoord, 0, 0]);
-        this.drawLine([0, farthestYCoord, 0], [0, closestYCoord, 0]);
+        this.drawLine(new Vector(farthestXCoord, 0, 0), new Vector(closestXCoord, 0, 0));
+        this.drawLine(new Vector(0, farthestYCoord, 0), new Vector(0, closestYCoord, 0));
 
-        this.drawLine([0, 0, 0], [0, 0, closestZCoord]);
+        this.drawLine(new Vector(0, 0, 0), new Vector(0, 0, closestZCoord));
     }
 
     coordinateAxes() {}
@@ -493,12 +489,12 @@ class Plot3D extends PlotSpace {
         var xIncrement = (endPoint[0] - startPoint[0]) / numPts;
         var yIncrement = (endPoint[1] - startPoint[1]) / numPts;
 
-        for (var x = startPoint[0]; x <= endPoint[0]; x += xIncrement) {
-            for (var y = startPoint[1]; y <= endPoint[1]; y += yIncrement) {
-                var A = [x, y, f(x, y)];
-                var B = [x + xIncrement, y, f(x + xIncrement, y)];
-                var C = [x + xIncrement, y + yIncrement, f(x + xIncrement, y + yIncrement)];
-                var D = [x, y + yIncrement, f(x, y + yIncrement)];
+        for (var x = startPoint.x; x <= endPoint.x; x += xIncrement) {
+            for (var y = startPoint.y; y <= endPoint.y; y += yIncrement) {
+                var A = new Vector(x, y, f(x, y));
+                var B = new Vector(x + xIncrement, y, f(x + xIncrement, y));
+                var C = new Vector(x + xIncrement, y + yIncrement, f(x + xIncrement, y + yIncrement));
+                var D = new Vector(x, y + yIncrement, f(x, y + yIncrement));
 
                 this.drawLine(A, B);
                 this.drawLine(B, C);
@@ -528,23 +524,23 @@ var plot = new Plot3D(stage, -20, 20, -10, 10, eye, zoomAmt, xAxis, yAxis);
 plot.gridlines();
 
 for (var i = 1; i < 18; i++) {
-    var label = plot.drawText(i, [i, 0, -0.6], "end");
+    var label = plot.drawText(i, new Vector(i, 0, -0.6), "end");
     label.setProperty("font-size", Math.abs(12*i)/(i+1));
-    label = plot.drawText(i, [0, i, -0.6], "end");
+    label = plot.drawText(i, new Vector(0, i, -0.6), "end");
     label.setProperty("font-size", Math.abs(12*i)/(i+1));
 }
 
-var A = [4, 2, 0];
-var B = [7, 2, 0];
-var C = [7, 5, 0];
-var D = [4, 5, 0];
-var E = [4, 2, 0];
+var A = new Vector(4, 2, 0);
+var B = new Vector(7, 2, 0);
+var C = new Vector(7, 5, 0);
+var D = new Vector(4, 5, 0);
+var E = new Vector(4, 2, 0);
 
-var F = [4, 2, 3];
-var G = [7, 2, 3];
-var H = [7, 5, 3];
-var I = [4, 5, 3];
-var J = [4, 2, 3];
+var F = new Vector(4, 2, 3);
+var G = new Vector(7, 2, 3);
+var H = new Vector(7, 5, 3);
+var I = new Vector(4, 5, 3);
+var J = new Vector(4, 2, 3);
 
 var arr = [A, B, C, D, E, F, G, H, I, J];
 var colors = ["red", "green", "blue", "pink", "yellow", "orange", "violet", "black", "green"];
@@ -558,23 +554,38 @@ function drawbox() {
     plot.drawLine(B, G);
     plot.drawLine(C, H);
     plot.drawLine(D, I);
+
+    var P = new Vector(Math.cos(Math.PI/2), Math.sin(Math.PI/2), 0);
+    var Q = new Vector(Math.sin(Math.PI/6) * Math.sin(Math.PI/2), Math.sin(Math.PI/6) * Math.cos(Math.PI/2), Math.cos(Math.PI/6));
+
+    var A1 = P.scale(5).add(Q.scale(5));
+    var A2 = P.scale(-5).add(Q.scale(5));
+    var A3 = P.scale(-5).add(Q.scale(-5));
+    var A4 = P.scale(5).add(Q.scale(-5));
+    
+    plot.drawLine(A1, A2);
+    plot.drawLine(A2, A3);
+    plot.drawLine(A3, A4);
+    plot.drawLine(A4, A1);
 }
 
 function walk(e) {
     plot.clear();
 
+    var forward = new Vector(Math.sin(xzAngle) * Math.sin(xyAngle), Math.sin(xzAngle) * Math.cos(xyAngle), 0);
+    forward = forward.unitVector();
+
     var key = e.key;
     if (key == "ArrowUp") {
-        eyeY--;
+        eye = eye.add(forward);
     } else if (key == "ArrowDown") {
-        eyeY++;
+        eye = eye.subtract(forward);
     } else if (key == "ArrowRight") {
-        eyeX++;
+        eye = eye.add(plot.X);
     } else if (key == "ArrowLeft") {
-        eyeX--;
+        eye = eye.subtract(plot.X);
     }
 
-    eye = new Vector(eyeX, eyeY, eyeZ);
     plot.updateParameters(eye, zoomAmt, xAxis, yAxis);
     plot.gridlines();
     drawbox();
@@ -600,8 +611,7 @@ function lookAround(e) {
         x *= Math.PI/6;
         xyAngle += x;
         var y = (lookY - e.clientY) / window.innerHeight;
-        eyeZ += y * 3;
-        eye = new Vector(eyeX, eyeY, eyeZ);
+        eye = eye.add(new Vector(0, 0, y*3));
         // y *= Math.PI/6;
         // xzAngle += y;
         lookX = e.clientX;
